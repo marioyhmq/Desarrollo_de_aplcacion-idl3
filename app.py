@@ -19,11 +19,14 @@ except Exception:
 
 st.title("Sistema de Gestión de Clientes")
 
-# Función para obtener datos con paginación
+# Función para obtener clientes con paginación
 def get_clients(limit=10, offset=0):
     try:
         response = supabase.table("clientes").select("*").range(offset, offset + limit - 1).execute()
-        return response.data if response.data else []
+        if response.data:
+            return response.data
+        else:
+            return []
     except Exception as e:
         st.error(f"Error al obtener clientes: {e}")
         return []
@@ -95,11 +98,13 @@ if "offset" not in st.session_state:
 
 clients = get_clients(limit, st.session_state.offset)
 
-data = pd.DataFrame(clients, columns=["id", "nombres", "apellidos", "email", "telefono", "fecha_registro"])
-if not data.empty:
-    st.dataframe(data, width=800)
+# Asegurar que la tabla no falle si no hay datos
+if clients:
+    data = pd.DataFrame(clients, columns=["id", "nombres", "apellidos", "email", "telefono", "fecha_registro"])
 else:
-    st.info("No hay clientes registrados o hubo un error en la consulta.")
+    data = pd.DataFrame(columns=["id", "nombres", "apellidos", "email", "telefono", "fecha_registro"])
+
+st.dataframe(data, width=800)
 
 col1, col2 = st.columns(2)
 if col1.button("Anterior"):
@@ -114,7 +119,9 @@ if col2.button("Siguiente"):
 st.header("Editar Cliente")
 id_edit = st.number_input("ID del cliente a editar", min_value=1, step=1)
 if st.button("Cargar Cliente"):
-    client_data = get_clients(1, id_edit - 1)
+    response = supabase.table("clientes").select("*").eq("id", id_edit).execute()
+    client_data = response.data
+
     if client_data:
         client = client_data[0]
         nombre_edit = st.text_input("Nombres", value=client.get("nombres", ""))
